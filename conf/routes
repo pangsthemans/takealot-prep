@@ -1,0 +1,7 @@
+# Routes are declared as: HTTP_VERB  /path  controller.method(typed_params)
+# Play compiles this file — typos in controller names become compile errors, not runtime 404s.
+
+POST    /parcels                controllers.ParcelController.create
+GET     /parcels/:id            controllers.ParcelController.getById(id: Long)
+PATCH   /parcels/:id/status     controllers.ParcelController.updateStatus(id: Long)
+GET     /parcels                controllers.ParcelController.list
