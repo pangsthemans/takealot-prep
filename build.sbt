@@ -21,5 +21,11 @@ libraryDependencies ++= Seq(
 
   // Phase 3: Cassandra event log
   // -shaded bundles Netty/Jackson under a relocated package, avoiding version conflicts with Play's own Netty
-  "com.datastax.oss"        %  "java-driver-core-shaded" % "4.17.0"
+  "com.datastax.oss"        %  "java-driver-core-shaded" % "4.17.0",
+
+  // Phase 4: Metrics
+  // metrics-core: MetricRegistry, Counter, Timer, Gauge
+  // metrics-graphite: GraphiteReporter — background thread that flushes to Graphite over TCP
+  "io.dropwizard.metrics"   %  "metrics-core"     % "4.2.25",
+  "io.dropwizard.metrics"   %  "metrics-graphite" % "4.2.25"
 )

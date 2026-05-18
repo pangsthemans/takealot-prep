@@ -9,7 +9,7 @@ import play.api.libs.json.{JsValue, Json}
 import play.api.test.FakeRequest
 import play.api.test.Helpers._
 import repositories.ParcelRepository
-import services.{CassandraConsumer, ParcelEventPublisher}
+import services.{CassandraConsumer, MetricsService, ParcelEventPublisher}
 
 import java.time.Instant
 
@@ -28,13 +28,14 @@ class ParcelControllerSpec extends PlaySpec with MockitoSugar with BeforeAndAfte
   private val repo      = mock[ParcelRepository]
   private val publisher = mock[ParcelEventPublisher]
   private val cassandra = mock[CassandraConsumer]
+  private val metrics   = mock[MetricsService]
 
   // stubControllerComponents() is Play's test helper that provides a minimal
   // ControllerComponents (Action builder, response helpers, etc.) without a running app.
-  private val controller = new ParcelController(stubControllerComponents(), repo, publisher, cassandra)
+  private val controller = new ParcelController(stubControllerComponents(), repo, publisher, cassandra, metrics)
 
   // Reset all stubs after each test so one test's `when()` can't bleed into the next.
-  override def beforeEach(): Unit = { reset(repo); reset(publisher); reset(cassandra) }
+  override def beforeEach(): Unit = { reset(repo); reset(publisher); reset(cassandra); reset(metrics) }
 
   // Shared test fixture — a parcel with a fixed timestamp so JSON comparisons are stable.
   private val now    = Instant.parse("2024-01-01T00:00:00Z")

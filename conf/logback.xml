@@ -17,9 +17,11 @@
   <logger name="repositories" level="DEBUG" />
 
   <!-- Suppress noisy third-party libraries -->
-  <logger name="com.zaxxer.hikari" level="WARN" />
-  <logger name="io.grpc"           level="WARN" />
-  <logger name="com.google"        level="WARN" />
+  <logger name="com.zaxxer.hikari"  level="WARN" />
+  <logger name="io.grpc"            level="WARN" />
+  <logger name="com.google"         level="WARN" />
+  <logger name="com.codahale"       level="WARN" />
+  <logger name="com.datastax"       level="WARN" />
 
   <root level="WARN">
     <appender-ref ref="STDOUT" />

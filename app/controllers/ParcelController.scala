@@ -4,7 +4,7 @@ import models.{CreateParcelRequest, UpdateStatusRequest}
 import play.api.libs.json._
 import play.api.mvc._
 import repositories.ParcelRepository
-import services.{CassandraConsumer, ParcelEventPublisher}
+import services.{CassandraConsumer, MetricsService, ParcelEventPublisher}
 
 import javax.inject.{Inject, Singleton}
 
@@ -13,13 +13,15 @@ class ParcelController @Inject()(
   val controllerComponents: ControllerComponents,
   parcelRepo: ParcelRepository,
   eventPublisher: ParcelEventPublisher,
-  cassandraConsumer: CassandraConsumer
+  cassandraConsumer: CassandraConsumer,
+  metricsService: MetricsService
 ) extends BaseController {
 
   def create: Action[JsValue] = Action(parse.json) { request =>
     request.body.validate[CreateParcelRequest] match {
       case JsSuccess(req, _) =>
         val parcel = parcelRepo.create(req.senderName, req.recipientName, req.recipientAddress)
+        metricsService.incrementParcelCreated()
         Created(Json.toJson(parcel))
       case JsError(_) =>
         BadRequest(Json.obj("error" -> "Invalid request body"))
@@ -39,6 +41,7 @@ class ParcelController @Inject()(
         parcelRepo.updateStatus(id, req.status) match {
           case Some(parcel) =>
             eventPublisher.publish(parcel)
+            metricsService.incrementStatusChange(req.status)
             Ok(Json.toJson(parcel))
           case None => NotFound(Json.obj("error" -> s"Parcel $id not found"))
         }

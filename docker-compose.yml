@@ -36,5 +36,24 @@ services:
       retries: 10
       start_period: 60s
 
+  # Graphite — receives metrics over TCP on port 2003 (Carbon plaintext protocol).
+  # Web UI on port 8080 lets you browse raw metric series.
+  graphite:
+    image: graphiteapp/graphite-statsd
+    ports:
+      - "2003:2003"  # Carbon plaintext receiver — the app writes here
+      - "8080:80"    # Graphite web UI
+
+  # Grafana — dashboard UI that queries Graphite as a data source.
+  # Login: admin / admin  →  http://localhost:3000
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    depends_on:
+      - graphite
+
 volumes:
   pgdata:
