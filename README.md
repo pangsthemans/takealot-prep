@@ -26,41 +26,43 @@ A parcel tracking service built incrementally to learn the stack:
 
 ---
 
-## Current state (Phase 2)
+## Current state (Phase 4)
 
 ```
   HTTP Client
       │
       │  REST calls
       ▼
-┌─────────────────────┐
-│   ParcelController  │
-│   (Play Framework)  │
-└──────────┬──────────┘
-           │
-           ├── POST / GET ──────────────────────────────────┐
-           │                                                 ▼
-           │                                        ┌────────────────┐
-           │                                        │    Postgres    │
-           │                                        │   (Docker)     │
-           │                                        └────────────────┘
-           │
-           └── PATCH /:id/status ──┐
-                                   │  1. write to Postgres
-                                   │  2. publish event
-                                   ▼
-                          ┌─────────────────────┐
-                          │  ParcelEventPublisher│
-                          └──────────┬──────────┘
-                                     │
-                                     ▼
-                          ┌─────────────────────┐
-                          │  Pub/Sub Emulator   │
-                          │  topic:             │
-                          │  parcel-status-     │
-                          │  changed            │
-                          │  (Docker, :8085)    │
-                          └─────────────────────┘
+┌─────────────────────────────────────┐
+│          ParcelController           │
+│          (Play Framework)           │
+└──────────────────┬──────────────────┘
+                   │
+      ┌────────────┼──────────────────────┐
+      │            │                      │
+      ▼            ▼                      ▼
+┌──────────┐ ┌──────────────────┐ ┌─────────────────┐
+│ Postgres │ │ParcelEventPublish│ │  MetricsService  │
+│ (Docker) │ │er (Phase 2)      │ │  (Phase 4)       │
+└──────────┘ └────────┬─────────┘ └────────┬─────────┘
+                      │                    │
+                      ▼                    ▼
+             ┌─────────────────┐  ┌─────────────────┐
+             │  Pub/Sub topic  │  │    Graphite      │
+             │  (Docker :8085) │  │  (Docker :2003)  │
+             └────────┬────────┘  └────────┬─────────┘
+                      │                    │
+                      ▼                    ▼
+             ┌─────────────────┐  ┌─────────────────┐
+             │CassandraConsumer│  │     Grafana      │
+             │  (Phase 3)      │  │  (Docker :3000)  │
+             └────────┬────────┘  └─────────────────┘
+                      │
+                      ▼
+             ┌─────────────────┐
+             │   Cassandra     │
+             │  (Docker :9042) │
+             └─────────────────┘
 ```
 
 ### PATCH /parcels/:id/status — detailed flow
@@ -79,7 +81,15 @@ Client ──PATCH──▶ ParcelController
                         │      PubsubMessage { eventType, parcelId,
                         │                      newStatus, occurredAt }
                         │              │
-                        │       Pub/Sub topic ──▶ (future subscribers)
+                        │       Pub/Sub topic ──▶ CassandraConsumer
+                        │                               │
+                        │                         Cassandra write
+                        │                         (parcel_events)
+                        ├─3──▶ MetricsService.incrementStatusChange()
+                        │              │
+                        │      parcels.status_change.<status> counter
+                        │              │
+                        │           Graphite (flushed every 10s)
                         │
                         └──▶ 200 OK  { ...updated parcel JSON }
 ```
@@ -92,9 +102,9 @@ Client ──PATCH──▶ ParcelController
 |-------|------|--------|
 | 1 | Play REST API + Postgres | ✅ Done |
 | 2 | Pub/Sub event publishing on status change | ✅ Done |
-| 3 | Cassandra consumer — subscribes to topic, writes immutable event log | ⬜ Next |
-| 4 | Graphite/Grafana — metrics per status transition | ⬜ |
-| 5 | Angular UI — parcel list + status timeline | ⬜ |
+| 3 | Cassandra consumer — subscribes to topic, writes immutable event log | ✅ Done |
+| 4 | Graphite/Grafana — metrics per status transition | ✅ Done |
+| 5 | Angular UI — parcel list + status timeline | ⬜ Next |
 
 ---
 
@@ -121,20 +131,22 @@ app/
     ParcelController.scala      ← HTTP layer: parse request, call repo, return JSON
   models/
     Parcel.scala                ← case class + JSON codecs
+    ParcelEvent.scala           ← Cassandra event record + JSON codecs
   repositories/
     ParcelRepository.scala      ← all SQL lives here (Anorm)
   services/
     ParcelEventPublisher.scala  ← Pub/Sub publisher (Phase 2)
-    [CassandraConsumer.scala]   ← Phase 3 subscriber will go here
+    CassandraConsumer.scala     ← Pub/Sub subscriber + Cassandra writer (Phase 3)
+    MetricsService.scala        ← Dropwizard counters → Graphite (Phase 4)
 conf/
   routes                        ← URL → controller mapping (compiled by Play)
-  application.conf              ← DB, Pub/Sub, Play settings (HOCON format)
+  application.conf              ← DB, Pub/Sub, Cassandra, Metrics settings (HOCON)
   logback.xml                   ← log levels per package
   evolutions/default/1.sql      ← CREATE TABLE parcels (Play runs this on startup)
-docker-compose.yml              ← Postgres + Pub/Sub emulator
+docker-compose.yml              ← Postgres, Pub/Sub, Cassandra, Graphite, Grafana
 test/
   controllers/
-    ParcelControllerSpec.scala  ← unit tests, mocked repo + publisher
+    ParcelControllerSpec.scala  ← unit tests, all dependencies mocked
 ```
 
 ---
