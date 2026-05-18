@@ -1,7 +1,7 @@
 package controllers
 
 import models.Parcel
-import org.mockito.Mockito.{reset, when}
+import org.mockito.Mockito.{reset, verify, when}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatestplus.mockito.MockitoSugar
 import org.scalatestplus.play.PlaySpec
@@ -9,6 +9,7 @@ import play.api.libs.json.{JsValue, Json}
 import play.api.test.FakeRequest
 import play.api.test.Helpers._
 import repositories.ParcelRepository
+import services.ParcelEventPublisher
 
 import java.time.Instant
 
@@ -24,14 +25,16 @@ class ParcelControllerSpec extends PlaySpec with MockitoSugar with BeforeAndAfte
 
   // mock[T] asks Mockito to generate a subclass of ParcelRepository at runtime
   // that intercepts every method call and returns whatever we program with when().
-  private val repo = mock[ParcelRepository]
+  private val repo      = mock[ParcelRepository]
+  private val publisher = mock[ParcelEventPublisher]
 
   // stubControllerComponents() is Play's test helper that provides a minimal
   // ControllerComponents (Action builder, response helpers, etc.) without a running app.
-  private val controller = new ParcelController(stubControllerComponents(), repo)
+  private val controller = new ParcelController(stubControllerComponents(), repo, publisher)
 
   // Reset all stubs after each test so one test's `when()` can't bleed into the next.
-  override def beforeEach(): Unit = reset(repo)
+  // publisher is reset too — keeps verify() counts accurate per test.
+  override def beforeEach(): Unit = { reset(repo); reset(publisher) }
 
   // Shared test fixture — a parcel with a fixed timestamp so JSON comparisons are stable.
   private val now    = Instant.parse("2024-01-01T00:00:00Z")
@@ -114,6 +117,8 @@ class ParcelControllerSpec extends PlaySpec with MockitoSugar with BeforeAndAfte
 
       status(result) mustBe OK
       (contentAsJson(result) \ "currentStatus").as[String] mustBe "IN_TRANSIT"
+      // verify() asserts the mock method was called exactly once with the updated parcel.
+      verify(publisher).publish(updated)
     }
 
     "return 404 Not Found when the parcel does not exist" in {

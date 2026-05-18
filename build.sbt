@@ -14,5 +14,8 @@ libraryDependencies ++= Seq(
   // Test dependencies (% Test means these jars are only on the test classpath)
   "org.scalatestplus.play" %% "scalatestplus-play" % "7.0.1"    % Test, // PlaySpec, route(), FakeRequest, GuiceOneAppPerSuite
   "org.scalatestplus"      %% "mockito-5-12"       % "3.2.19.0" % Test, // mock[T], when().thenReturn()
-  "com.h2database"          %  "h2"                % "2.2.224"  % Test  // in-memory DB so tests don't need Docker running
+  "com.h2database"          %  "h2"                % "2.2.224"  % Test, // in-memory DB so tests don't need Docker running
+
+  // Phase 2: Pub/Sub event publishing
+  "com.google.cloud"        %  "google-cloud-pubsub" % "1.128.1" // Google Cloud Pub/Sub Java client
 )

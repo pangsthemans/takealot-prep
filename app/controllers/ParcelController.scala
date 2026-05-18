@@ -4,13 +4,15 @@ import models.{CreateParcelRequest, UpdateStatusRequest}
 import play.api.libs.json._
 import play.api.mvc._
 import repositories.ParcelRepository
+import services.ParcelEventPublisher
 
 import javax.inject.{Inject, Singleton}
 
 @Singleton
 class ParcelController @Inject()(
   val controllerComponents: ControllerComponents,
-  parcelRepo: ParcelRepository
+  parcelRepo: ParcelRepository,
+  eventPublisher: ParcelEventPublisher
 ) extends BaseController {
 
   def create: Action[JsValue] = Action(parse.json) { request =>
@@ -34,8 +36,10 @@ class ParcelController @Inject()(
     request.body.validate[UpdateStatusRequest] match {
       case JsSuccess(req, _) =>
         parcelRepo.updateStatus(id, req.status) match {
-          case Some(parcel) => Ok(Json.toJson(parcel))
-          case None         => NotFound(Json.obj("error" -> s"Parcel $id not found"))
+          case Some(parcel) =>
+            eventPublisher.publish(parcel)
+            Ok(Json.toJson(parcel))
+          case None => NotFound(Json.obj("error" -> s"Parcel $id not found"))
         }
       case JsError(_) =>
         BadRequest(Json.obj("error" -> "Invalid request body"))
@@ -46,3 +50,4 @@ class ParcelController @Inject()(
     Ok(Json.toJson(parcelRepo.list()))
   }
 }
+// nur

@@ -11,5 +11,14 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  # Google Pub/Sub emulator — same wire protocol as real GCP, no account needed.
+  # The app connects to localhost:8085; topics and subscriptions live only in memory.
+  pubsub:
+    image: gcr.io/google.com/cloudsdktool/cloud-sdk:emulators
+    platform: linux/amd64  # image has no arm64 build; runs under QEMU emulation on Apple Silicon
+    command: gcloud beta emulators pubsub start --project=local-project --host-port=0.0.0.0:8085
+    ports:
+      - "8085:8085"
+
 volumes:
   pgdata:
