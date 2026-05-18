@@ -4,7 +4,7 @@ import models.{CreateParcelRequest, UpdateStatusRequest}
 import play.api.libs.json._
 import play.api.mvc._
 import repositories.ParcelRepository
-import services.ParcelEventPublisher
+import services.{CassandraConsumer, ParcelEventPublisher}
 
 import javax.inject.{Inject, Singleton}
 
@@ -12,7 +12,8 @@ import javax.inject.{Inject, Singleton}
 class ParcelController @Inject()(
   val controllerComponents: ControllerComponents,
   parcelRepo: ParcelRepository,
-  eventPublisher: ParcelEventPublisher
+  eventPublisher: ParcelEventPublisher,
+  cassandraConsumer: CassandraConsumer
 ) extends BaseController {
 
   def create: Action[JsValue] = Action(parse.json) { request =>
@@ -48,6 +49,10 @@ class ParcelController @Inject()(
 
   def list: Action[AnyContent] = Action {
     Ok(Json.toJson(parcelRepo.list()))
+  }
+
+  def events(id: Long): Action[AnyContent] = Action {
+    Ok(Json.toJson(cassandraConsumer.listEvents(id)))
   }
 }
 // nur

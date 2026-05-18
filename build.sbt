@@ -17,5 +17,9 @@ libraryDependencies ++= Seq(
   "com.h2database"          %  "h2"                % "2.2.224"  % Test, // in-memory DB so tests don't need Docker running
 
   // Phase 2: Pub/Sub event publishing
-  "com.google.cloud"        %  "google-cloud-pubsub" % "1.128.1" // Google Cloud Pub/Sub Java client
+  "com.google.cloud"        %  "google-cloud-pubsub" % "1.128.1", // Google Cloud Pub/Sub Java client
+
+  // Phase 3: Cassandra event log
+  // -shaded bundles Netty/Jackson under a relocated package, avoiding version conflicts with Play's own Netty
+  "com.datastax.oss"        %  "java-driver-core-shaded" % "4.17.0"
 )

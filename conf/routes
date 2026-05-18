@@ -5,3 +5,4 @@ POST    /parcels                controllers.ParcelController.create
 GET     /parcels/:id            controllers.ParcelController.getById(id: Long)
 PATCH   /parcels/:id/status     controllers.ParcelController.updateStatus(id: Long)
 GET     /parcels                controllers.ParcelController.list
+GET     /parcels/:id/events     controllers.ParcelController.events(id: Long)

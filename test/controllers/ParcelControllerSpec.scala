@@ -1,6 +1,6 @@
 package controllers
 
-import models.Parcel
+import models.{Parcel, ParcelEvent}
 import org.mockito.Mockito.{reset, verify, when}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatestplus.mockito.MockitoSugar
@@ -9,7 +9,7 @@ import play.api.libs.json.{JsValue, Json}
 import play.api.test.FakeRequest
 import play.api.test.Helpers._
 import repositories.ParcelRepository
-import services.ParcelEventPublisher
+import services.{CassandraConsumer, ParcelEventPublisher}
 
 import java.time.Instant
 
@@ -27,14 +27,14 @@ class ParcelControllerSpec extends PlaySpec with MockitoSugar with BeforeAndAfte
   // that intercepts every method call and returns whatever we program with when().
   private val repo      = mock[ParcelRepository]
   private val publisher = mock[ParcelEventPublisher]
+  private val cassandra = mock[CassandraConsumer]
 
   // stubControllerComponents() is Play's test helper that provides a minimal
   // ControllerComponents (Action builder, response helpers, etc.) without a running app.
-  private val controller = new ParcelController(stubControllerComponents(), repo, publisher)
+  private val controller = new ParcelController(stubControllerComponents(), repo, publisher, cassandra)
 
   // Reset all stubs after each test so one test's `when()` can't bleed into the next.
-  // publisher is reset too — keeps verify() counts accurate per test.
-  override def beforeEach(): Unit = { reset(repo); reset(publisher) }
+  override def beforeEach(): Unit = { reset(repo); reset(publisher); reset(cassandra) }
 
   // Shared test fixture — a parcel with a fixed timestamp so JSON comparisons are stable.
   private val now    = Instant.parse("2024-01-01T00:00:00Z")
@@ -156,6 +156,32 @@ class ParcelControllerSpec extends PlaySpec with MockitoSugar with BeforeAndAfte
 
       status(result) mustBe OK
       contentAsJson(result).as[List[Parcel]] mustBe empty
+    }
+  }
+
+  // ── GET /parcels/:id/events ────────────────────────────────────────────────
+
+  "GET /parcels/:id/events" should {
+
+    "return 200 OK with the event history from Cassandra" in {
+      val event = ParcelEvent(1L, now, "STATUS_CHANGED", "IN_TRANSIT")
+      when(cassandra.listEvents(1L)).thenReturn(List(event))
+
+      val result = controller.events(1L)(FakeRequest())
+
+      status(result) mustBe OK
+      val json = contentAsJson(result).as[List[ParcelEvent]]
+      json must have size 1
+      json.head.newStatus mustBe "IN_TRANSIT"
+    }
+
+    "return 200 OK with an empty array when there are no events" in {
+      when(cassandra.listEvents(1L)).thenReturn(List.empty)
+
+      val result = controller.events(1L)(FakeRequest())
+
+      status(result) mustBe OK
+      contentAsJson(result).as[List[ParcelEvent]] mustBe empty
     }
   }
 }
