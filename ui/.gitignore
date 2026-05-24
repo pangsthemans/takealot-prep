@@ -11,6 +11,10 @@
 npm-debug.log
 yarn-error.log
 
+# AI assistant config (per-machine, not project files)
+.claude/
+.gemini/
+
 # IDEs and editors
 .idea/
 .project
