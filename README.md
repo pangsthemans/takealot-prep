@@ -26,16 +26,21 @@ A parcel tracking service built incrementally to learn the stack:
 
 ---
 
-## Current state (Phase 4)
+## Current state (Phase 5 — complete)
 
 ```
-  HTTP Client
-      │
-      │  REST calls
-      ▼
+┌─────────────────────────────────┐
+│     Angular UI (:4200)          │
+│  ParcelList  ParcelDetail       │
+│  CreateParcelDialog             │
+│  UpdateStatusDialog             │
+└──────────────┬──────────────────┘
+               │ HTTP via dev proxy
+               │ /api/* → :9000/*
+               ▼
 ┌─────────────────────────────────────┐
 │          ParcelController           │
-│          (Play Framework)           │
+│          (Play Framework :9000)     │
 └──────────────────┬──────────────────┘
                    │
       ┌────────────┼──────────────────────┐
@@ -43,7 +48,7 @@ A parcel tracking service built incrementally to learn the stack:
       ▼            ▼                      ▼
 ┌──────────┐ ┌──────────────────┐ ┌─────────────────┐
 │ Postgres │ │ParcelEventPublish│ │  MetricsService  │
-│ (Docker) │ │er (Phase 2)      │ │  (Phase 4)       │
+│ (Docker) │ │er                │ │                  │
 └──────────┘ └────────┬─────────┘ └────────┬─────────┘
                       │                    │
                       ▼                    ▼
@@ -55,7 +60,7 @@ A parcel tracking service built incrementally to learn the stack:
                       ▼                    ▼
              ┌─────────────────┐  ┌─────────────────┐
              │CassandraConsumer│  │     Grafana      │
-             │  (Phase 3)      │  │  (Docker :3000)  │
+             │                 │  │  (Docker :3000)  │
              └────────┬────────┘  └─────────────────┘
                       │
                       ▼
@@ -104,7 +109,7 @@ Client ──PATCH──▶ ParcelController
 | 2 | Pub/Sub event publishing on status change | ✅ Done |
 | 3 | Cassandra consumer — subscribes to topic, writes immutable event log | ✅ Done |
 | 4 | Graphite/Grafana — metrics per status transition | ✅ Done |
-| 5 | Angular UI — parcel list + status timeline | ⬜ Next |
+| 5 | Angular UI — parcel list + status timeline | ✅ Done |
 
 ---
 
@@ -119,7 +124,8 @@ Client ──PATCH──▶ ParcelController
 | Messaging | Google Pub/Sub | Decoupled event delivery |
 | Event store | Cassandra (Phase 3) | Immutable append-only log |
 | Metrics | Graphite / Grafana (Phase 4) | Time-series dashboards |
-| Frontend | Angular (Phase 5) | SPA, familiar to the team |
+| Frontend | Angular 21 + Material | SPA, blue/white theme, signals-based state |
+| UI tests | Vitest (via Angular CLI) | Fast, no browser needed |
 
 ---
 
@@ -147,6 +153,16 @@ docker-compose.yml              ← Postgres, Pub/Sub, Cassandra, Graphite, Graf
 test/
   controllers/
     ParcelControllerSpec.scala  ← unit tests, all dependencies mocked
+ui/
+  src/app/
+    models/parcel.model.ts      ← TypeScript interfaces matching Play case classes
+    services/parcel.service.ts  ← HttpClient calls to all 5 API endpoints
+    parcel-list/                ← table of all parcels, create dialog
+    parcel-detail/              ← parcel info card + event history table
+    create-parcel-dialog/       ← reactive form, POST /parcels
+    update-status-dialog/       ← status dropdown, PATCH /parcels/:id/status
+  proxy.conf.json               ← forwards /api/* to Play :9000 during development
+FLOW.md                         ← detailed walkthrough of the full request lifecycle
 ```
 
 ---
@@ -160,6 +176,10 @@ docker compose up
 # 2. Start the API (first run downloads dependencies)
 sbt run
 # API is live at http://localhost:9000
+
+# 3. Start the Angular UI (in a separate terminal)
+cd ui && ng serve
+# UI is live at http://localhost:4200
 ```
 
 ---
@@ -228,9 +248,18 @@ INFO  services.ParcelEventPublisher - [Pub/Sub] STATUS_CHANGED for parcel Some(1
 
 ## Running tests
 
+**Backend (Scala / Play):**
 ```bash
 sbt test        # run once
 sbt ~test       # watch mode — re-runs on file save
 ```
-
 Tests use Mockito to stub the repository and publisher — no Docker needed.
+
+**Frontend (Angular):**
+```bash
+cd ui
+ng test         # run once
+ng test --watch # watch mode
+```
+Tests use Vitest with Angular's `TestBed`. All HTTP calls are intercepted by
+`HttpTestingController` — no dev server or Play API needed.
